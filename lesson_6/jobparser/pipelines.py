@@ -17,16 +17,17 @@ class JobparserPipeline:
 
     def process_item(self, item, spider):
         if spider.name == 'hhru':
-            item['min_salary'], item['max_salary'], item['currency'] = self.process_salary(item['salary'])
+            item['min_salary'], item['max_salary'], item['currency'] = self.process_salary_hhru(item['salary'])
             # del item['salary']
         else:
-            pass
+            item['min_salary'], item['max_salary'], item['currency'] = self.process_salary_sjru(item['salary'])
+            # del item['salary']
         collection = self.mongobase[spider.name]
         collection.insert_one(item)
 
         return item
 
-    def process_salary(self, salary):
+    def process_salary_hhru(self, salary):
         min_salary_l = None
         max_salary_l = None
         currency_l = None
@@ -83,4 +84,27 @@ class JobparserPipeline:
                 min_salary_l = salary[1]
                 max_salary_l = salary[3]
                 currency_l = 'EUR'
+        return min_salary_l, max_salary_l, currency_l
+
+    def process_salary_sjru(self, salary):
+        min_salary_l = None
+        max_salary_l = None
+        currency_l = None
+
+        if 'от' in salary:
+            min_salary_l = salary[2].replace('\xa0руб.', '')
+            max_salary_l = None
+            currency_l = 'руб.'
+        if 'до' in salary:
+            min_salary_l = None
+            max_salary_l = salary[2].replace('\xa0руб.', '')
+            currency_l = 'руб.'
+        if '—' in salary:
+            min_salary_l = salary[0]
+            max_salary_l = salary[4]
+            currency_l = salary[6]
+        if 'от' not in salary and 'до' not in salary and '—' not in salary and 'По договорённости' not in salary:
+            min_salary_l = salary[0].replace('\xa0руб.', '')
+            max_salary_l = salary[0].replace('\xa0руб.', '')
+            currency_l = salary[2]
         return min_salary_l, max_salary_l, currency_l
